@@ -1,7 +1,7 @@
 import os from 'node:os'
 import path from 'node:path'
 import fs from 'node:fs'
-import { SubTransactionalStore, TransactionalStore } from '../../src/stores/transactional.js'
+import { Store } from '../../src/stores/transactional.js'
 
 const tmpDir = () => path.join(os.tmpdir(), `${Date.now()}.${Math.random()}.test.local.storage`)
 
@@ -26,7 +26,7 @@ export const testTransactionalStore = {
       ['foo', { bar: 'baz' }],
       ['bar', 'boz']
     ]
-    const store = new TransactionalStore(dir)
+    const store = new Store(dir)
     await store.transact(async s => {
       for (const [k, v] of items) {
         await s.put(k, v)
@@ -42,7 +42,7 @@ export const testTransactionalStore = {
   }),
 
   'multiple transactions consistent data': withTmpDir(async (assert, dir) => {
-    const store = new TransactionalStore(dir)
+    const store = new Store(dir)
     await Promise.all([
       store.transact(async s => {
         await s.put('foo', 123)
@@ -75,11 +75,11 @@ export const testTransactionalStore = {
       ['foo', { bar: 'baz' }],
       ['bar', 'boz']
     ]
-    const store = new TransactionalStore(dir)
+    const store = new Store(dir)
     const prefix0 = 'sub0/'
-    const subStore0 = new SubTransactionalStore(prefix0, store)
+    const subStore0 = store.partition(prefix0)
     const prefix1 = 'sub1/'
-    const subStore1 = new SubTransactionalStore(prefix1, store)
+    const subStore1 = store.partition(prefix1)
 
     await subStore0.transact(async s => {
       for (const [k, v] of items) {
