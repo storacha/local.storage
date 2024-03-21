@@ -24,7 +24,7 @@ export class DelegationsStore {
         const archive = await d.archive()
         if (!archive.ok) return archive
 
-        await s.put(`d/${d.audience}/${d.cid}`, Object.assign({
+        await s.put(`d/${d.audience.did()}/${d.cid}`, Object.assign({
           bytes: archive.ok,
           insertedAt: new Date().toISOString()
         }, options?.cause ? { cause: options.cause } : {}))

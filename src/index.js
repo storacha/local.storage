@@ -1,7 +1,10 @@
+import fs from 'node:fs'
 import http from 'node:http'
+import { authorize } from '@web3-storage/upload-api/validate'
+import * as DIDMailto from '@web3-storage/did-mailto'
 import { Store } from './stores/transactional.js'
-import { StoreTable } from './stores/store-table.js'
-import { UploadTable } from './stores/upload-table.js'
+import { StoreStore } from './stores/store.js'
+import { UploadStore } from './stores/upload.js'
 import { ProvisionsStore } from './stores/provisions.js'
 import { DelegationsStore } from './stores/delegations.js'
 import { RateLimitsStore } from './stores/rate-limits.js'
@@ -30,19 +33,7 @@ const spaceSnapshotStore = store.partition('space-snapshot/')
 const blobStore = store.partition('blob/', { codec: CARCodec })
 const partsStore = store.partition('part/')
 
-const storeTable = new StoreTable(storeStore)
-const uploadTable = new UploadTable(uploadStore)
-const provisionsStorage = new ProvisionsStore(subscriptionStore, consumerStore, spaceMetricsStore, [config.signer.did()])
-const delegationsStorage = new DelegationsStore(delegationsStore)
-const rateLimitsStorage = new RateLimitsStore(rateLimitsStore)
-const plansStorage = new PlansStore(customerStore)
-const subscriptionsStorage = new SubscriptionsStore(consumerStore)
-const revocationsStorage = new RevocationsStore(revocationsStore)
-const usageStorage = new UsageStore(spaceDiffStore, spaceSnapshotStore)
-const carStoreBucket = new BlobStore(blobStore, config.signer, config.publicUploadURL)
-const dudewhereBucket = new PartsStore(partsStore)
-
-const server = createServer({
+const context = {
   // Ucanto config
   id: config.signer,
   signer: config.signer,
@@ -50,24 +41,25 @@ const server = createServer({
 
   // Access service config
   email: { sendValidation: async input => console.log('Sending email:', input) },
-  url: new URL('http://localhost'), // URL used in validation emails
+  url: config.publicApiURL, // URL used in validation emails
 
   // store/add config
   maxUploadSize: config.maxUploadSize,
 
   // Stores
-  storeTable,
-  uploadTable,
-  provisionsStorage,
-  delegationsStorage,
-  rateLimitsStorage,
-  plansStorage,
-  subscriptionsStorage,
-  revocationsStorage,
-  usageStorage,
-
-  carStoreBucket,  // used on store/add to determine if status = 'upload' or status = 'done' in response [X]
-  dudewhereBucket, // on upload/add we write root => CAR(s) mapping [X]
+  storeTable: new StoreStore(storeStore),
+  uploadTable: new UploadStore(uploadStore),
+  provisionsStorage: new ProvisionsStore(subscriptionStore, consumerStore, spaceMetricsStore, [config.signer.did()]),
+  delegationsStorage: new DelegationsStore(delegationsStore),
+  rateLimitsStorage: new RateLimitsStore(rateLimitsStore),
+  plansStorage: new PlansStore(customerStore),
+  subscriptionsStorage: new SubscriptionsStore(consumerStore),
+  revocationsStorage: new RevocationsStore(revocationsStore),
+  usageStorage: new UsageStore(spaceDiffStore, spaceSnapshotStore),
+  // used on store/add to determine if status = 'upload' or status = 'done' in response [X]
+  carStoreBucket: new BlobStore(blobStore, config.signer, config.publicUploadURL),
+  // on upload/add we write root => CAR(s) mapping [X]
+  dudewhereBucket: new PartsStore(partsStore), 
 
   // filecoin storefront
   // taskStore, // [X]
@@ -79,9 +71,61 @@ const server = createServer({
   // pieceOfferQueue, // [X]
 
   // dealTrackerService, // connection and invocation config for deal tracker service
-})
+}
 
-const httpServer = http.createServer(async (req, res) => {
+const server = createServer(context)
+
+console.log(config.banner)
+console.log(`Service DID: ${config.signer.did()} (${config.signer.toDIDKey()})`)
+
+const httpAPIServer = http.createServer(async (req, res) => {
+  if (req.method === 'GET' && req.url === '/version') {
+    res.statusCode = 200
+    res.setHeader('Content-Type', 'application/json')
+    res.write(JSON.stringify({
+      name: config.pkg.name,
+      version: config.pkg.version,
+      did: config.signer.did(),
+      publicKey: config.signer.toDIDKey()
+    }))
+    return res.end()
+  }
+  if (req.method === 'GET' && req.url?.startsWith('/validate-email?')) {
+    res.statusCode = 200
+    res.setHeader('Content-Type', 'text/html')
+    res.write(await fs.promises.readFile(`${import.meta.dirname}/validate-email.html`))
+    return res.end()
+  }
+  if (req.method === 'POST' && req.url?.startsWith('/validate-email?')) {
+    const { searchParams } = new URL(req.url, config.publicApiURL)
+    const authResult = await authorize(searchParams.get('ucan') ?? '', context)
+    if (authResult.error) {
+      console.error(new Error('failed authorization', { cause: authResult.error }))
+      res.statusCode = 500
+      res.setHeader('Content-Type', 'text/html')
+      res.write(`Oops something went wrong: ${authResult.error.message}`)
+      return res.end()
+    }
+
+    const customer = DIDMailto.fromEmail(authResult.ok.email)
+    const account = `placeholder:acc-${Date.now()}`
+    const product = 'did:web:starter.local.web3.storage'
+    console.log(`Skipping payment flow and initializing ${customer} with plan ${product}`)
+    const initResult = await context.plansStorage.initialize(customer, account, product)
+    if (initResult.error && initResult.error.name !== 'CustomerExists') {
+      console.error(new Error('failed customer initialization', { cause: initResult.error }))
+      res.statusCode = 500
+      res.setHeader('Content-Type', 'text/html')
+      res.write(`Oops something went wrong: ${initResult.error.message}`)
+      return res.end()
+    }
+
+    res.statusCode = 200
+    res.setHeader('Content-Type', 'text/html')
+    res.write(await fs.promises.readFile(`${import.meta.dirname}/validated-email.html`))
+    return res.end()
+  }
+
   const chunks = []
   for await (const chunk of req) {
     chunks.push(chunk)
@@ -90,14 +134,32 @@ const httpServer = http.createServer(async (req, res) => {
     method: req.method ?? 'POST',
     // @ts-expect-error
     headers: req.headers,
-    body: Buffer.from(chunks)
+    body: Buffer.concat(chunks)
   })
   res.statusCode = response.status ?? 200
+  for (const [k, v] of Object.entries(response.headers)) {
+    res.setHeader(k, v)
+  }
   res.write(response.body)
   res.end()
 })
 
-httpServer.listen(config.port, () => {
-  console.log(`Service DID: ${config.signer.did()} (${config.signer.toDIDKey()})`)
-  console.log(`Listening on: ${config.port}`)
+httpAPIServer.listen(config.apiPort, () => {
+  console.log(`API server listening on :${config.apiPort}`)
+})
+
+const httpDataServer = http.createServer(async (req, res) => {
+  // TODO: validate signed URL
+  const chunks = []
+  for await (const chunk of req) {
+    chunks.push(chunk)
+  }
+  const bytes = Buffer.concat(chunks)  
+  const result = await context.carStoreBucket.put(bytes)
+  if (result.ok) console.log(`Stored: ${result.ok.link} (${bytes.length} bytes)`)
+  res.end()
+})
+
+httpDataServer.listen(config.uploadPort, () => {
+  console.log(`Data ingest server listening on :${config.uploadPort}`)
 })

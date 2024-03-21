@@ -1,5 +1,7 @@
 import { base64pad } from 'multiformats/bases/base64'
 import * as UploadAPI from '@web3-storage/upload-api/types'
+import { CAR } from '@ucanto/transport'
+import { ok } from '@ucanto/server'
 import * as API from './api.js'
 
 /** @implements {UploadAPI.CarStoreBucket} */
@@ -17,6 +19,16 @@ export class BlobStore {
     this.#store = store
     this.#signer = signer
     this.#url = url
+  }
+
+  /**
+   * @param {Uint8Array} bytes
+   * @returns {Promise<UploadAPI.Result<{ link: UploadAPI.CARLink }>>}
+   */
+  async put (bytes) {
+    const link = await CAR.codec.link(bytes)
+    await this.#store.transact(s => s.put(`d/${link}`, bytes))
+    return ok({ link })
   }
 
   /** @param {UploadAPI.UnknownLink} link */

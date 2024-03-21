@@ -5,7 +5,7 @@ import { Set as LinkSet } from 'lnset'
 import { RecordNotFound } from './lib.js'
 
 /** @implements {UploadAPI.UploadTable} */
-export class UploadTable {
+export class UploadStore {
   #store
 
   /**

@@ -124,7 +124,9 @@ const transact = async ({ queue, root, blocks, codec }, fn) => {
         await blocks.del(r.cid)
       }
       resolve(result)
-      console.log(`Commit: ${txn.root}`)
+      if (rootLink.toString() !== txn.root.toString()) {
+        console.log(`Transaction commit: ${txn.root}`)
+      }
     } catch (err) {
       reject(err)
     }
@@ -342,7 +344,7 @@ class LinkStore {
   }
 }
 
-class BlockStore {
+export class BlockStore {
   #bs
 
   /** @param {string} dir */

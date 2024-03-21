@@ -4,7 +4,7 @@ import { ok, error } from '@ucanto/server'
 import { RecordKeyConflict, RecordNotFound } from './lib.js'
 
 /** @implements {UploadAPI.StoreTable} */
-export class StoreTable {
+export class StoreStore {
   #store
 
   /**
@@ -54,7 +54,9 @@ export class StoreTable {
       if (exists) {
         return error(new RecordKeyConflict())
       }
-
+      if ('origin' in record && record.origin == null) {
+        delete record.origin
+      }
       await s.put(`d/${record.space}/${record.link}`, record)
       await s.put(`i/${record.link}/${record.space}`, record)
       return ok({
