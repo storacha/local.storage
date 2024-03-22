@@ -81,6 +81,7 @@ console.log(`Service DID: ${config.signer.did()} (${config.signer.toDIDKey()})`)
 const httpServer = http.createServer(async (req, res) => {
   if (req.url !== '/') console.log(`${req.method} ${req.url}`)
 
+  // GET /validate-email //////////////////////////////////////////////////////
   if (req.method === 'GET' && req.url === '/version') {
     res.statusCode = 200
     res.setHeader('Content-Type', 'application/json')
@@ -98,6 +99,8 @@ const httpServer = http.createServer(async (req, res) => {
     res.write(await fs.promises.readFile(`${import.meta.dirname}/validate-email.html`))
     return res.end()
   }
+
+  // POST /validate-email /////////////////////////////////////////////////////
   if (req.method === 'POST' && req.url?.startsWith('/validate-email?')) {
     const { searchParams } = new URL(req.url, config.publicApiURL)
     const authResult = await authorize(searchParams.get('ucan') ?? '', context)
@@ -127,6 +130,8 @@ const httpServer = http.createServer(async (req, res) => {
     res.write(await fs.promises.readFile(`${import.meta.dirname}/validated-email.html`))
     return res.end()
   }
+
+  // PUT /blob/:cid ///////////////////////////////////////////////////////////
   if (req.method === 'PUT' && req.url?.startsWith('/blob/')) {
     // TODO: validate signed URL
     const chunks = []
@@ -139,21 +144,27 @@ const httpServer = http.createServer(async (req, res) => {
     return res.end()
   }
 
-  const chunks = []
-  for await (const chunk of req) {
-    chunks.push(chunk)
+  // POST / ///////////////////////////////////////////////////////////////////
+  if (req.method === 'POST' && req.url === '/') {
+    const chunks = []
+    for await (const chunk of req) {
+      chunks.push(chunk)
+    }
+    const response = await server.request({
+      method: req.method ?? 'POST',
+      // @ts-expect-error
+      headers: req.headers,
+      body: Buffer.concat(chunks)
+    })
+    res.statusCode = response.status ?? 200
+    for (const [k, v] of Object.entries(response.headers)) {
+      res.setHeader(k, v)
+    }
+    res.write(response.body)
+    return res.end()
   }
-  const response = await server.request({
-    method: req.method ?? 'POST',
-    // @ts-expect-error
-    headers: req.headers,
-    body: Buffer.concat(chunks)
-  })
-  res.statusCode = response.status ?? 200
-  for (const [k, v] of Object.entries(response.headers)) {
-    res.setHeader(k, v)
-  }
-  res.write(response.body)
+
+  res.statusCode = 404
   res.end()
 })
 
