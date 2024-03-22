@@ -27,14 +27,13 @@ PRIVATE_KEY='Mg...'
 
 # directory where to read/write data to
 DATA_DIR=./data
-# port the UCAN API should bind to
+# port the service should bind to
 API_PORT=3000
 # Public URL where UCAN invocations can be sent
 PUBLIC_API_URL='http://localhost:3000'
-# port the data ingest service should bind to
-UPLOAD_PORT=3001
 # Public URL where uploads will be received
-PUBLIC_UPLOAD_URL='http://localhost:3001'
+# i.e. a HTTP PUT request to {PUBLIC_UPLOAD_URL}/blob/{CID}
+PUBLIC_UPLOAD_URL='http://localhost:3000'
 ```
 
 Start the service:

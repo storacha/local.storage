@@ -43,7 +43,7 @@ export class BlobStore {
   async createUploadUrl (link, size) {
     const checksum = base64pad.baseEncode(link.multihash.digest)
     return {
-      url: this.#url,
+      url: new URL(`blob/${link}`, this.#url),
       headers: {
         'x-amz-checksum-sha256': checksum,
         'content-length': String(size),

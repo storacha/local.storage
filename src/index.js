@@ -78,7 +78,9 @@ const server = createServer(context)
 console.log(config.banner)
 console.log(`Service DID: ${config.signer.did()} (${config.signer.toDIDKey()})`)
 
-const httpAPIServer = http.createServer(async (req, res) => {
+const httpServer = http.createServer(async (req, res) => {
+  if (req.url !== '/') console.log(`${req.method} ${req.url}`)
+
   if (req.method === 'GET' && req.url === '/version') {
     res.statusCode = 200
     res.setHeader('Content-Type', 'application/json')
@@ -125,6 +127,17 @@ const httpAPIServer = http.createServer(async (req, res) => {
     res.write(await fs.promises.readFile(`${import.meta.dirname}/validated-email.html`))
     return res.end()
   }
+  if (req.method === 'PUT' && req.url?.startsWith('/blob/')) {
+    // TODO: validate signed URL
+    const chunks = []
+    for await (const chunk of req) {
+      chunks.push(chunk)
+    }
+    const bytes = Buffer.concat(chunks)  
+    const result = await context.carStoreBucket.put(bytes)
+    if (result.ok) console.log(`Stored: ${result.ok.link} (${bytes.length} bytes)`)
+    return res.end()
+  }
 
   const chunks = []
   for await (const chunk of req) {
@@ -144,22 +157,6 @@ const httpAPIServer = http.createServer(async (req, res) => {
   res.end()
 })
 
-httpAPIServer.listen(config.apiPort, () => {
-  console.log(`API server listening on :${config.apiPort}`)
-})
-
-const httpDataServer = http.createServer(async (req, res) => {
-  // TODO: validate signed URL
-  const chunks = []
-  for await (const chunk of req) {
-    chunks.push(chunk)
-  }
-  const bytes = Buffer.concat(chunks)  
-  const result = await context.carStoreBucket.put(bytes)
-  if (result.ok) console.log(`Stored: ${result.ok.link} (${bytes.length} bytes)`)
-  res.end()
-})
-
-httpDataServer.listen(config.uploadPort, () => {
-  console.log(`Data ingest server listening on :${config.uploadPort}`)
+httpServer.listen(config.apiPort, () => {
+  console.log(`Server listening on :${config.apiPort}`)
 })
