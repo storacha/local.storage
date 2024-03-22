@@ -21,6 +21,8 @@ const did = DID.parse(`did:web:${libp2pKey.toString(base32)}.local.web3.storage`
 const pkg = JSON.parse(fs.readFileSync(`${import.meta.dirname}/../package.json`, 'utf8'))
 const banner = fs.readFileSync(`${import.meta.dirname}/banner.txt`, 'utf8')
 const apiPort = process.env.API_PORT ?? 3000
+const publicApiURL = new URL(process.env.PUBLIC_API_URL ?? `http://localhost:${apiPort}`)
+const publicUploadURL = new URL(process.env.PUBLIC_UPLOAD_URL ?? publicApiURL)
 
 export const config = { 
   pkg,
@@ -28,7 +30,7 @@ export const config = {
   apiPort,
   dataDir: process.env.DATA_DIR ?? './data',
   signer: signer.withDID(did),
-  publicApiURL: new URL(process.env.PUBLIC_API_URL ? process.env.PUBLIC_API_URL : `http://localhost:${apiPort}`),
-  publicUploadURL: new URL(process.env.PUBLIC_UPLOAD_URL ? process.env.PUBLIC_UPLOAD_URL : `http://localhost:${apiPort}`),
+  publicApiURL,
+  publicUploadURL,
   maxUploadSize: MAX_UPLOAD_SIZE
 }
