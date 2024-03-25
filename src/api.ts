@@ -35,3 +35,5 @@ export interface UcantoServerContext extends ServiceContext {
   id: Signer
   errorReporter: ErrorReporter
 }
+
+export type Range = { offset: number, length?: number } | { offset?: number, length: number } | { suffix: number }

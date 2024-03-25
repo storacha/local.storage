@@ -1,7 +1,9 @@
 import fs from 'node:fs'
 import http from 'node:http'
+import { Writable } from 'node:stream'
 import { authorize } from '@web3-storage/upload-api/validate'
 import * as DIDMailto from '@web3-storage/did-mailto'
+import * as Link from 'multiformats/link'
 import { Store } from './stores/transactional.js'
 import { StoreStore } from './stores/store.js'
 import { UploadStore } from './stores/upload.js'
@@ -15,6 +17,7 @@ import { UsageStore } from './stores/usage.js'
 import { BlobStore } from './stores/blob.js'
 import { PartsStore } from './stores/parts.js'
 import { CARCodec } from './stores/lib.js'
+import { parseRange } from './http.js'
 import { config } from './config.js'
 import { createServer } from './server.js'
 
@@ -59,7 +62,7 @@ const context = {
   // used on store/add to determine if status = 'upload' or status = 'done' in response [X]
   carStoreBucket: new BlobStore(blobStore, config.signer, config.publicUploadURL),
   // on upload/add we write root => CAR(s) mapping [X]
-  dudewhereBucket: new PartsStore(partsStore), 
+  dudewhereBucket: new PartsStore(partsStore),
 
   // filecoin storefront
   // taskStore, // [X]
@@ -142,6 +145,40 @@ const httpServer = http.createServer(async (req, res) => {
     const result = await context.carStoreBucket.put(bytes)
     if (result.ok) console.log(`Stored: ${result.ok.link} (${bytes.length} bytes)`)
     return res.end()
+  }
+
+  // GET /blob/:cid ///////////////////////////////////////////////////////////
+  if (req.method === 'GET' && req.url?.startsWith('/blob/')) {
+    let cid
+    try {
+      const url = new URL(req.url, config.publicApiURL)
+      cid = Link.parse(url.pathname.split('/')[2])
+    } catch (err) {
+      res.statusCode = 400
+      res.write(`invalid CID: ${err.message}`)
+      return res.end()
+    }
+
+    let range
+    if (req.headers.range) {
+      try {
+        range = parseRange(req.headers.range)
+        console.log(`Range: ${req.headers.range}`)
+      } catch (err) {
+        res.statusCode = 400
+        res.write(`invalid range: ${err.message}`)
+        return res.end()
+      }
+    }
+    const result = await context.carStoreBucket.stream(cid, { range })
+    if (result.error) {
+      console.error('failed to read blob', result.error, range)
+      res.statusCode = result.error.name === 'RecordNotFound' ? 404 : 500
+      res.write('failed to read blob')
+      return res.end()
+    }
+
+    return await result.ok.pipeTo(Writable.toWeb(res))
   }
 
   // POST / ///////////////////////////////////////////////////////////////////

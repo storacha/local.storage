@@ -20,6 +20,7 @@
     "@web3-storage/upload-api": "^8.4.1",
     "blockstore-fs": "^1.1.10",
     "dotenv": "^16.4.5",
+    "http-range-parse": "^1.0.0",
     "lnmap": "^2.0.0",
     "lnset": "^1.2.0",
     "multiformats": "^13.1.0",

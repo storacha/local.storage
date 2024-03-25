@@ -1,8 +1,9 @@
 import { base64pad } from 'multiformats/bases/base64'
 import * as UploadAPI from '@web3-storage/upload-api/types'
 import { CAR } from '@ucanto/transport'
-import { ok } from '@ucanto/server'
+import { ok, error } from '@ucanto/server'
 import * as API from './api.js'
+import { RecordNotFound } from './lib.js'
 
 /** @implements {UploadAPI.CarStoreBucket} */
 export class BlobStore {
@@ -34,6 +35,38 @@ export class BlobStore {
   /** @param {UploadAPI.UnknownLink} link */
   has (link) {
     return this.#store.transact(s => s.has(link.toString()))
+  }
+
+  /**
+   * @param {UploadAPI.UnknownLink} link
+   * @param {{ range?: import('../api.js').Range }} [options]
+   * @returns {Promise<import('@ucanto/interface').Result<ReadableStream<Uint8Array>, import('@web3-storage/upload-api').RecordNotFound>>}
+   */
+  async stream (link, options) {
+    const { range } = options ?? {}
+    const bytes = await this.#store.transact(s => s.get(`d/${link}`))
+    if (!bytes) return error(new RecordNotFound())
+    return ok(
+      /** @type {ReadableStream<Uint8Array>} */
+      new ReadableStream({
+        pull (controller) {
+          if (range) {
+            if ('suffix' in range) {
+              controller.enqueue(bytes.slice(-range.suffix))
+            } else if (range.offset && range.length) {
+              controller.enqueue(bytes.slice(range.offset, range.offset + range.length))
+            } else if (range.offset) {
+              controller.enqueue(bytes.slice(range.offset))
+            } else if (range.length) {
+              controller.enqueue(bytes.slice(0, range.length))
+            }
+          } else {
+            controller.enqueue(bytes)
+          }
+          controller.close()
+        }
+      })
+    )
   }
 
   /**

@@ -235,7 +235,7 @@ class TxnStore {
     if (!valueLink) return
     const valueBlock = await this.#blocks.get(valueLink)
     if (!valueBlock) throw new Error(`missing value for key: ${key}: ${valueLink}`)
-    return codec.decode(valueBlock.bytes)
+    return this.#codec.decode(valueBlock.bytes)
   }
 
   /** @param {string} key */

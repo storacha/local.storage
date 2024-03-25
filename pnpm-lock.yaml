@@ -32,6 +32,9 @@ dependencies:
   dotenv:
     specifier: ^16.4.5
     version: 16.4.5
+  http-range-parse:
+    specifier: ^1.0.0
+    version: 1.0.0
   lnmap:
     specifier: ^2.0.0
     version: 2.0.0
@@ -710,6 +713,10 @@ packages:
 
   /hashlru@2.3.0:
     resolution: {integrity: sha512-0cMsjjIC8I+D3M44pOQdsy0OHXGLVz6Z0beRuufhKa0KfaD2wGwAev6jILzXsd3/vpnNQJmWyZtIILqM1N+n5A==}
+    dev: false
+
+  /http-range-parse@1.0.0:
+    resolution: {integrity: sha512-8xfObVjVGz3VGdiMbbsxoMhxgZrcLOagvzf5rcTfwU2OmmyWJib6Y9rtyjjIFFJ8J/UUEaik4U6AmvnC70YLiw==}
     dev: false
 
   /ieee754@1.2.1:
