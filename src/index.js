@@ -14,12 +14,14 @@ import { PlansStore } from './stores/plans.js'
 import { SubscriptionsStore } from './stores/subscriptions.js'
 import { RevocationsStore } from './stores/revocations.js'
 import { UsageStore } from './stores/usage.js'
-import { BlobStore } from './stores/blob.js'
+import { BlobPutEvent, BlobStore } from './stores/blob.js'
 import { PartsStore } from './stores/parts.js'
+import { ClaimStore } from './stores/claims.js'
 import { CARCodec } from './stores/lib.js'
 import { parseRange } from './http.js'
 import { config } from './config.js'
 import { createServer } from './server.js'
+import { createLocationClaim } from './claims.js'
 
 const store = new Store(config.dataDir)
 const storeStore = store.partition('store/')
@@ -35,6 +37,7 @@ const spaceDiffStore = store.partition('space-diff/')
 const spaceSnapshotStore = store.partition('space-snapshot/')
 const blobStore = store.partition('blob/', { codec: CARCodec })
 const partsStore = store.partition('part/')
+const claimStore = store.partition('claim/')
 
 const context = {
   // Ucanto config
@@ -74,7 +77,34 @@ const context = {
   // pieceOfferQueue, // [X]
 
   // dealTrackerService, // connection and invocation config for deal tracker service
+
+  // Content Claims
+  claimStore: new ClaimStore(claimStore)
 }
+
+// create a location claim when data is added to the blob store
+context.carStoreBucket.addEventListener('put', async e => {
+  if (e instanceof BlobPutEvent) {
+    const location = new URL(`/blob/${e.link}`, config.publicUploadURL)
+    const claim = await createLocationClaim({
+      issuer: config.signer,
+      audience: config.signer,
+      proofs: []
+    }, e.link, location)
+
+    const archive = await claim.archive()
+    if (archive.error) return console.error('failed to archive delegation', archive.error)
+
+    await context.claimStore.put({
+      claim: claim.cid,
+      bytes: archive.ok,
+      content: e.link.multihash,
+      // @ts-expect-error
+      value: claim.capabilities[0]
+    })
+    console.log(`Content location claimed: ${e.link} @ ${location}`)
+  }
+})
 
 const server = createServer(context)
 
@@ -180,6 +210,9 @@ const httpServer = http.createServer(async (req, res) => {
 
     return await result.ok.pipeTo(Writable.toWeb(res))
   }
+
+  // GET /claims/:cid /////////////////////////////////////////////////////////
+  // TODO
 
   // POST / ///////////////////////////////////////////////////////////////////
   if (req.method === 'POST' && req.url === '/') {

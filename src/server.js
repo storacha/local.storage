@@ -16,6 +16,7 @@ import { createService as createRateLimitService } from '@web3-storage/upload-ap
 import { createService as createUcanService } from '@web3-storage/upload-api/ucan'
 import { createService as createPlanService } from '@web3-storage/upload-api/plan'
 import { createService as createUsageService } from '@web3-storage/upload-api/usage'
+import { createService as createClaimsService } from '@web3-storage/content-claims/server/service'
 
 /** @param {API.UcantoServerContext} options */
 export const createServer = ({ id, ...context }) => Server.create({
@@ -41,5 +42,6 @@ export const createService = context => ({
   upload: createUploadService(context),
   ucan: createUcanService(context),
   plan: createPlanService(context),
-  usage: createUsageService(context)
+  usage: createUsageService(context),
+  ...createClaimsService(context)
 })

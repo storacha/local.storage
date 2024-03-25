@@ -15,6 +15,7 @@
     "@ucanto/principal": "^9.0.0",
     "@ucanto/server": "^9.0.1",
     "@ucanto/transport": "^9.1.0",
+    "@web3-storage/content-claims": "^4.0.2",
     "@web3-storage/did-mailto": "^2.1.0",
     "@web3-storage/pail": "^0.5.0",
     "@web3-storage/upload-api": "^8.4.1",

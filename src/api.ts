@@ -15,9 +15,11 @@ import {
   ErrorReporter,
   Signer
 } from '@web3-storage/upload-api'
+import { ServiceContext as ClaimServiceContext } from '@web3-storage/content-claims/server/service/api'
 
 export interface ServiceContext
   extends AccessServiceContext,
+    ClaimServiceContext,
     ConsoleServiceContext,
     ConsumerServiceContext,
     CustomerServiceContext,

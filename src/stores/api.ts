@@ -80,3 +80,9 @@ export interface SpaceSnapshotRecord {
   recordedAt: ISO8601Date
   insertedAt: ISO8601Date
 }
+
+export interface ClaimRecord {
+  cause: UCANLink
+  bytes: Uint8Array
+  content: Uint8Array // multihash
+}

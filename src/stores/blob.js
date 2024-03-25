@@ -5,8 +5,16 @@ import { ok, error } from '@ucanto/server'
 import * as API from './api.js'
 import { RecordNotFound } from './lib.js'
 
+export class BlobPutEvent extends Event {
+  /** @param {UploadAPI.UnknownLink} link */
+  constructor (link) {
+    super('put')
+    this.link = link
+  }
+}
+
 /** @implements {UploadAPI.CarStoreBucket} */
-export class BlobStore {
+export class BlobStore extends EventTarget {
   #store
   #signer
   #url
@@ -17,6 +25,7 @@ export class BlobStore {
    * @param {URL} url
    */
   constructor (store, signer, url) {
+    super()
     this.#store = store
     this.#signer = signer
     this.#url = url
@@ -29,6 +38,7 @@ export class BlobStore {
   async put (bytes) {
     const link = await CAR.codec.link(bytes)
     await this.#store.transact(s => s.put(`d/${link}`, bytes))
+    this.dispatchEvent(new BlobPutEvent(link))
     return ok({ link })
   }
 
