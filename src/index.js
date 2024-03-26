@@ -3,7 +3,9 @@ import http from 'node:http'
 import { Writable } from 'node:stream'
 import { authorize } from '@web3-storage/upload-api/validate'
 import * as DIDMailto from '@web3-storage/did-mailto'
-import * as Link from 'multiformats/link'
+import * as Digest from 'multiformats/hashes/digest'
+import * as raw from 'multiformats/codecs/raw'
+import { base58btc } from 'multiformats/bases/base58'
 import { Store } from './stores/transactional.js'
 import { StoreStore } from './stores/store.js'
 import { UploadStore } from './stores/upload.js'
@@ -14,10 +16,10 @@ import { PlansStore } from './stores/plans.js'
 import { SubscriptionsStore } from './stores/subscriptions.js'
 import { RevocationsStore } from './stores/revocations.js'
 import { UsageStore } from './stores/usage.js'
-import { BlobPutEvent, BlobStore } from './stores/blob.js'
+import { BlobStore } from './stores/blob.js'
+import { CARPutEvent, CARStore } from './stores/car.js'
 import { PartsStore } from './stores/parts.js'
 import { ClaimStore } from './stores/claims.js'
-import { CARCodec } from './stores/lib.js'
 import { parseRange } from './http.js'
 import { config } from './config.js'
 import { createServer } from './server.js'
@@ -35,9 +37,11 @@ const customerStore = store.partition('customer/')
 const revocationsStore = store.partition('revocation/')
 const spaceDiffStore = store.partition('space-diff/')
 const spaceSnapshotStore = store.partition('space-snapshot/')
-const blobStore = store.partition('blob/', { codec: CARCodec })
+const blobStore = store.partition('blob/', { codec: raw })
 const partsStore = store.partition('part/')
 const claimStore = store.partition('claim/')
+
+const blobStorage = new BlobStore(blobStore, config.signer, config.publicUploadURL)
 
 const context = {
   // Ucanto config
@@ -63,7 +67,7 @@ const context = {
   revocationsStorage: new RevocationsStore(revocationsStore),
   usageStorage: new UsageStore(spaceDiffStore, spaceSnapshotStore),
   // used on store/add to determine if status = 'upload' or status = 'done' in response [X]
-  carStoreBucket: new BlobStore(blobStore, config.signer, config.publicUploadURL),
+  carStoreBucket: new CARStore(blobStorage),
   // on upload/add we write root => CAR(s) mapping [X]
   dudewhereBucket: new PartsStore(partsStore),
 
@@ -84,8 +88,8 @@ const context = {
 
 // create a location claim when data is added to the blob store
 context.carStoreBucket.addEventListener('put', async e => {
-  if (e instanceof BlobPutEvent) {
-    const location = new URL(`/blob/${e.link}`, config.publicUploadURL)
+  if (e instanceof CARPutEvent) {
+    const location = new URL(`/blob/${base58btc.encode(e.link.multihash.bytes)}`, config.publicUploadURL)
     const claim = await createLocationClaim({
       issuer: config.signer,
       audience: config.signer,
@@ -179,13 +183,13 @@ const httpServer = http.createServer(async (req, res) => {
 
   // GET /blob/:cid ///////////////////////////////////////////////////////////
   if (req.method === 'GET' && req.url?.startsWith('/blob/')) {
-    let cid
+    let digest
     try {
       const url = new URL(req.url, config.publicApiURL)
-      cid = Link.parse(url.pathname.split('/')[2])
+      digest = Digest.decode(base58btc.decode(url.pathname.split('/')[2]))
     } catch (err) {
       res.statusCode = 400
-      res.write(`invalid CID: ${err.message}`)
+      res.write(`invalid multihash: ${err.message}`)
       return res.end()
     }
 
@@ -200,7 +204,7 @@ const httpServer = http.createServer(async (req, res) => {
         return res.end()
       }
     }
-    const result = await context.carStoreBucket.stream(cid, { range })
+    const result = await blobStorage.stream(digest, { range })
     if (result.error) {
       console.error('failed to read blob', result.error, range)
       res.statusCode = result.error.name === 'RecordNotFound' ? 404 : 500

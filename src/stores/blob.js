@@ -1,19 +1,19 @@
 import { base64pad } from 'multiformats/bases/base64'
+import { base58btc } from 'multiformats/bases/base58'
+import { sha256 } from 'multiformats/hashes/sha2'
 import * as UploadAPI from '@web3-storage/upload-api/types'
-import { CAR } from '@ucanto/transport'
 import { ok, error } from '@ucanto/server'
 import * as API from './api.js'
 import { RecordNotFound } from './lib.js'
 
 export class BlobPutEvent extends Event {
-  /** @param {UploadAPI.UnknownLink} link */
-  constructor (link) {
+  /** @param {import('multiformats').MultihashDigest} digest */
+  constructor (digest) {
     super('put')
-    this.link = link
+    this.digest = digest
   }
 }
 
-/** @implements {UploadAPI.CarStoreBucket} */
 export class BlobStore extends EventTarget {
   #store
   #signer
@@ -33,28 +33,28 @@ export class BlobStore extends EventTarget {
 
   /**
    * @param {Uint8Array} bytes
-   * @returns {Promise<UploadAPI.Result<{ link: UploadAPI.CARLink }>>}
+   * @returns {Promise<UploadAPI.Result<{ digest: import('multiformats').MultihashDigest }>>}
    */
   async put (bytes) {
-    const link = await CAR.codec.link(bytes)
-    await this.#store.transact(s => s.put(`d/${link}`, bytes))
-    this.dispatchEvent(new BlobPutEvent(link))
-    return ok({ link })
+    const digest = await sha256.digest(bytes)
+    await this.#store.transact(s => s.put(`d/${base58btc.encode(digest.bytes)}`, bytes))
+    this.dispatchEvent(new BlobPutEvent(digest))
+    return ok({ digest })
   }
 
-  /** @param {UploadAPI.UnknownLink} link */
-  has (link) {
-    return this.#store.transact(s => s.has(link.toString()))
+  /** @param {import('multiformats').MultihashDigest} digest */
+  has (digest) {
+    return this.#store.transact(s => s.has(`d/${base58btc.encode(digest.bytes)}`))
   }
 
   /**
-   * @param {UploadAPI.UnknownLink} link
+   * @param {import('multiformats').MultihashDigest} digest
    * @param {{ range?: import('../api.js').Range }} [options]
    * @returns {Promise<import('@ucanto/interface').Result<ReadableStream<Uint8Array>, import('@web3-storage/upload-api').RecordNotFound>>}
    */
-  async stream (link, options) {
+  async stream (digest, options) {
     const { range } = options ?? {}
-    const bytes = await this.#store.transact(s => s.get(`d/${link}`))
+    const bytes = await this.#store.transact(s => s.get(`d/${base58btc.encode(digest.bytes)}`))
     if (!bytes) return error(new RecordNotFound())
     return ok(
       /** @type {ReadableStream<Uint8Array>} */
@@ -80,15 +80,15 @@ export class BlobStore extends EventTarget {
   }
 
   /**
-   * @param {UploadAPI.UnknownLink} link
+   * @param {import('multiformats').MultihashDigest} digest
    * @param {number} size
    */
-  async createUploadUrl (link, size) {
-    const checksum = base64pad.baseEncode(link.multihash.digest)
+  async createUploadURL (digest, size) {
+    // TODO: sign
     return {
-      url: new URL(`blob/${link}`, this.#url),
+      url: new URL(`blob/${base58btc.encode(digest.bytes)}`, this.#url),
       headers: {
-        'x-amz-checksum-sha256': checksum,
+        'x-amz-checksum-sha256': base64pad.baseEncode(digest.digest),
         'content-length': String(size),
       },
     }
