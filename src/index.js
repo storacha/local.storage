@@ -8,10 +8,11 @@ import * as Digest from 'multiformats/hashes/digest'
 import * as raw from 'multiformats/codecs/raw'
 import * as Link from 'multiformats/link'
 import { base58btc } from 'multiformats/bases/base58'
-import { CARWriterStream } from 'carstream'
+import { CARReaderStream, CARWriterStream } from 'carstream'
+import { MultihashIndexSortedWriter } from 'cardex'
 import { Store } from './stores/transactional.js'
 import { StoreStore } from './stores/store.js'
-import { UploadStore } from './stores/upload.js'
+import { UploadAddEvent, UploadStore } from './stores/upload.js'
 import { ProvisionsStore } from './stores/provisions.js'
 import { DelegationsStore } from './stores/delegations.js'
 import { RateLimitsStore } from './stores/rate-limits.js'
@@ -26,7 +27,8 @@ import { ClaimStore } from './stores/claims.js'
 import { parseRange } from './http.js'
 import { config } from './config.js'
 import { createServer } from './server.js'
-import { createLocationClaim } from './claims.js'
+import { createInclusionClaim, createLocationClaim, createPartitionClaim } from './claims.js'
+import { concatStream } from './util.js'
 
 const store = new Store(config.dataDir)
 const storeStore = store.partition('store/')
@@ -89,15 +91,47 @@ const context = {
   claimStore: new ClaimStore(claimStore)
 }
 
-// create a location claim when data is added to the blob store
+// Create a location claim when a CAR is added
 context.carStoreBucket.addEventListener('put', async e => {
   if (e instanceof CARPutEvent) {
-    const location = new URL(`/blob/${base58btc.encode(e.link.multihash.bytes)}`, config.publicUploadURL)
-    const claim = await createLocationClaim({
+    await createAndStoreLocationClaim(e.link)
+  }
+})
+
+// Create CAR index when CAR is added
+context.carStoreBucket.addEventListener('put', async e => {
+  if (e instanceof CARPutEvent) {
+    const carStream = await blobStorage.stream(e.link.multihash)
+    if (!carStream.ok) return console.error('failed to stream CAR from blob store', carStream.error)
+
+    const { readable, writable } = new TransformStream()
+    const writer = MultihashIndexSortedWriter.createWriter({ writer: writable.getWriter() })
+
+    const [, bytes] = await Promise.all([
+      carStream.ok
+        .pipeThrough(new CARReaderStream())
+        .pipeTo(new WritableStream({
+          write: async block => { await writer.add(block.cid, block.offset) },
+          close: async () => { await writer.close() }
+        })),
+      concatStream(readable)
+    ])
+
+    const putResult = await blobStorage.put(bytes)
+    if (!putResult.ok) return console.error('failed to store CAR index', putResult.error)
+    
+    const { digest } = putResult.ok
+    const includes = Link.create(MultihashIndexSortedWriter.codec, digest)
+
+    console.log(`Indexed CAR: ${e.link} => ${includes}`)
+
+    await createAndStoreLocationClaim(includes)
+    
+    const claim = await createInclusionClaim({
       issuer: config.signer,
       audience: config.signer,
       proofs: []
-    }, e.link, location)
+    }, e.link, includes)
 
     const archive = await claim.archive()
     if (archive.error) return console.error('failed to archive delegation', archive.error)
@@ -109,9 +143,58 @@ context.carStoreBucket.addEventListener('put', async e => {
       // @ts-expect-error
       value: claim.capabilities[0]
     })
-    console.log(`Content location claimed: ${e.link} @ ${location}`)
+
+    console.log(`Content inclusion claimed: ${e.link} includes: ${includes}`)
   }
 })
+
+// Create a partition claim when `upload/add` is invoked
+context.uploadTable.addEventListener('add', async e => {
+  if (e instanceof UploadAddEvent) {
+    const claim = await createPartitionClaim({
+      issuer: config.signer,
+      audience: config.signer,
+      proofs: []
+    }, e.root, e.shards)
+
+    const archive = await claim.archive()
+    if (archive.error) return console.error('failed to archive delegation', archive.error)
+
+    await context.claimStore.put({
+      claim: claim.cid,
+      bytes: archive.ok,
+      content: e.root.multihash,
+      // @ts-expect-error
+      value: claim.capabilities[0]
+    })
+
+    console.log(`Content partition claimed: ${e.root} parts: ${e.shards.map(s => String(s))}`)
+  }
+})
+
+/**
+ * @param {import('multiformats').UnknownLink} content
+ */
+const createAndStoreLocationClaim = async (content) => {
+  const location = new URL(`/blob/${base58btc.encode(content.multihash.bytes)}`, config.publicUploadURL)
+  const claim = await createLocationClaim({
+    issuer: config.signer,
+    audience: config.signer,
+    proofs: []
+  }, content, location)
+
+  const archive = await claim.archive()
+  if (archive.error) return console.error('failed to archive delegation', archive.error)
+
+  await context.claimStore.put({
+    claim: claim.cid,
+    bytes: archive.ok,
+    content: content.multihash,
+    // @ts-expect-error
+    value: claim.capabilities[0]
+  })
+  console.log(`Content location claimed: ${content} location: ${location}`)
+}
 
 const server = createServer(context)
 

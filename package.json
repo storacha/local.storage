@@ -20,6 +20,7 @@
     "@web3-storage/pail": "^0.5.0",
     "@web3-storage/upload-api": "^8.4.1",
     "blockstore-fs": "^1.1.10",
+    "cardex": "^3.0.2",
     "carstream": "^2.0.0",
     "dotenv": "^16.4.5",
     "http-range-parse": "^1.0.0",

@@ -32,6 +32,9 @@ dependencies:
   blockstore-fs:
     specifier: ^1.1.10
     version: 1.1.10
+  cardex:
+    specifier: ^3.0.2
+    version: 3.0.2
   carstream:
     specifier: ^2.0.0
     version: 2.0.0
@@ -501,6 +504,17 @@ packages:
     dependencies:
       base64-js: 1.5.1
       ieee754: 1.2.1
+    dev: false
+
+  /cardex@3.0.2:
+    resolution: {integrity: sha512-0/w/34Uroad916W5Kn0CEAeIKH5Nw69Yv8Z4c2iVSSRzQPMOZbjUEygFZOkSDbDKXy6SgHinDoXrs72idZZ5WQ==}
+    hasBin: true
+    dependencies:
+      '@ipld/car': 5.3.0
+      multiformats: 13.1.0
+      sade: 1.8.1
+      uint8arrays: 5.0.3
+      varint: 6.0.0
     dev: false
 
   /carstream@1.1.1:

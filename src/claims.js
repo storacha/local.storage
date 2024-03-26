@@ -26,3 +26,41 @@ export const createLocationClaim = (conf, content, location) => {
     proofs: conf.proofs
   })
 }
+
+/**
+ * @param {InvocationConfig} conf
+ * @param {import('multiformats').UnknownLink} content
+ * @param {import('multiformats').Link} includes
+ */
+export const createInclusionClaim = (conf, content, includes) => {
+  return Assert.inclusion.delegate({
+    issuer: conf.issuer,
+    audience: conf.audience,
+    with: conf.audience.did(),
+    nb: {
+      content,
+      includes
+    },
+    expiration: Infinity,
+    proofs: conf.proofs
+  })
+}
+
+/**
+ * @param {InvocationConfig} conf
+ * @param {import('multiformats').UnknownLink} content
+ * @param {import('multiformats').Link[]} parts
+ */
+export const createPartitionClaim = (conf, content, parts) => {
+  return Assert.partition.delegate({
+    issuer: conf.issuer,
+    audience: conf.audience,
+    with: conf.audience.did(),
+    nb: {
+      content,
+      parts
+    },
+    expiration: Infinity,
+    proofs: conf.proofs
+  })
+}

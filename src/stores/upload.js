@@ -4,14 +4,27 @@ import { ok, error } from '@ucanto/server'
 import { Set as LinkSet } from 'lnset'
 import { RecordNotFound } from './lib.js'
 
+export class UploadAddEvent extends Event {
+  /**
+   * @param {import('multiformats').UnknownLink} root
+   * @param {import('multiformats').Link[]} shards
+   */
+  constructor (root, shards) {
+    super('add')
+    this.root = root
+    this.shards = shards
+  }
+}
+
 /** @implements {UploadAPI.UploadTable} */
-export class UploadStore {
+export class UploadStore extends EventTarget {
   #store
 
   /**
    * @param {API.TransactionalStore<UploadAPI.UploadAddInput & { insertedAt: UploadAPI.ISO8601Date, updatedAt: UploadAPI.ISO8601Date }>} store
    */
   constructor (store) {
+    super()
     this.#store = store
   }
 
@@ -64,6 +77,7 @@ upsert (item) {
 
     await s.put(`d/${record.space}/${record.root}`, record)
     await s.put(`i/${record.root}/${record.space}`, record)
+    this.dispatchEvent(new UploadAddEvent(record.root, record.shards ?? []))
     return ok({ root: record.root, shards: record.shards })
   })
 }

@@ -25,8 +25,16 @@ export class RecordKeyConflict extends Failure {
 
 /** @type {import('multiformats').BlockCodec<0x0202, Uint8Array>} */
 export const CARCodec = {
-  name: 'CAR',
+  name: 'car',
   code: 0x0202,
+  encode: d => coerce(d),
+  decode: d => coerce(d)
+}
+
+/** @type {import('multiformats').BlockCodec<0x0401, Uint8Array>} */
+export const MultihashIndexSortedCodec = {
+  name: 'car-multihash-index-sorted',
+  code: 0x0401,
   encode: d => coerce(d),
   decode: d => coerce(d)
 }
