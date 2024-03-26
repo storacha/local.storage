@@ -1,11 +1,6 @@
-import { base64pad } from 'multiformats/bases/base64'
-import { base58btc } from 'multiformats/bases/base58'
 import * as Link from 'multiformats/link'
 import * as UploadAPI from '@web3-storage/upload-api/types'
-import { CAR } from '@ucanto/transport'
-import { ok, error } from '@ucanto/server'
-import * as API from './api.js'
-import { RecordNotFound } from './lib.js'
+import { ok } from '@ucanto/server'
 import { BlobStore } from './blob.js'
 
 export class CARPutEvent extends Event {
@@ -41,15 +36,6 @@ export class CARStore extends EventTarget {
   /** @param {UploadAPI.UnknownLink} link */
   has (link) {
     return this.#store.has(link.multihash)
-  }
-
-  /**
-   * @param {UploadAPI.UnknownLink} link
-   * @param {{ range?: import('../api.js').Range }} [options]
-   * @returns {Promise<import('@ucanto/interface').Result<ReadableStream<Uint8Array>, import('@web3-storage/upload-api').RecordNotFound>>}
-   */
-  stream (link, options) {
-    return this.#store.stream(link.multihash, options)
   }
 
   /**

@@ -3,9 +3,12 @@ import http from 'node:http'
 import { Writable } from 'node:stream'
 import { authorize } from '@web3-storage/upload-api/validate'
 import * as DIDMailto from '@web3-storage/did-mailto'
+import { walkClaims } from '@web3-storage/content-claims/server'
 import * as Digest from 'multiformats/hashes/digest'
 import * as raw from 'multiformats/codecs/raw'
+import * as Link from 'multiformats/link'
 import { base58btc } from 'multiformats/bases/base58'
+import { CARWriterStream } from 'carstream'
 import { Store } from './stores/transactional.js'
 import { StoreStore } from './stores/store.js'
 import { UploadStore } from './stores/upload.js'
@@ -168,7 +171,7 @@ const httpServer = http.createServer(async (req, res) => {
     return res.end()
   }
 
-  // PUT /blob/:cid ///////////////////////////////////////////////////////////
+  // PUT /blob/:multihash /////////////////////////////////////////////////////
   if (req.method === 'PUT' && req.url?.startsWith('/blob/')) {
     // TODO: validate signed URL
     const chunks = []
@@ -181,7 +184,7 @@ const httpServer = http.createServer(async (req, res) => {
     return res.end()
   }
 
-  // GET /blob/:cid ///////////////////////////////////////////////////////////
+  // GET /blob/:multihash /////////////////////////////////////////////////////
   if (req.method === 'GET' && req.url?.startsWith('/blob/')) {
     let digest
     try {
@@ -216,7 +219,24 @@ const httpServer = http.createServer(async (req, res) => {
   }
 
   // GET /claims/:cid /////////////////////////////////////////////////////////
-  // TODO
+  if (req.method === 'GET' && req.url?.startsWith('/claims/')) {
+    const url = new URL(req.url, config.publicApiURL)
+
+    let link
+    try {
+      link = Link.parse(url.pathname.split('/')[2])
+    } catch (err) {
+      res.statusCode = 400
+      res.write(`invalid CID: ${err.message}`)
+      return res.end()
+    }
+
+    const walkcsv = url.searchParams.get('walk')
+    const walk = new Set(walkcsv ? walkcsv.split(',') : [])
+    const readable = walkClaims({ claimFetcher: context.claimStore }, link, walk)
+    res.setHeader('Content-Type', 'application/vnd.ipld.car; version=1;')
+    return await readable.pipeThrough(new CARWriterStream()).pipeTo(Writable.toWeb(res))
+  }
 
   // POST / ///////////////////////////////////////////////////////////////////
   if (req.method === 'POST' && req.url === '/') {

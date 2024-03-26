@@ -18,8 +18,8 @@ dependencies:
     specifier: ^9.1.0
     version: 9.1.0
   '@web3-storage/content-claims':
-    specifier: ^4.0.2
-    version: 4.0.2
+    specifier: ^4.0.3
+    version: 4.0.3
   '@web3-storage/did-mailto':
     specifier: ^2.1.0
     version: 2.1.0
@@ -32,6 +32,9 @@ dependencies:
   blockstore-fs:
     specifier: ^1.1.10
     version: 1.1.10
+  carstream:
+    specifier: ^2.0.0
+    version: 2.0.0
   dotenv:
     specifier: ^16.4.5
     version: 16.4.5
@@ -327,8 +330,8 @@ packages:
       '@web3-storage/data-segment': 3.2.0
     dev: false
 
-  /@web3-storage/content-claims@4.0.2:
-    resolution: {integrity: sha512-k6tIc7YjQtdKWi01r7+5stp2lo13ztwpIz+7NQYEbu5fZEsKKes5B4FKRqPWkZYO17+rPaihOY6sICT498c9EA==}
+  /@web3-storage/content-claims@4.0.3:
+    resolution: {integrity: sha512-PtGYLlS5258uOC57K4kJKJHPWdDeYjI3o38i+uxiHfM8cra5CwszE/82/peyUNyxm2VZVPNj8+LltB4HBQbaZA==}
     dependencies:
       '@ucanto/client': 9.0.0
       '@ucanto/interface': 9.0.0
@@ -505,6 +508,14 @@ packages:
     dependencies:
       '@ipld/dag-cbor': 9.2.0
       multiformats: 12.1.3
+      uint8arraylist: 2.4.8
+    dev: false
+
+  /carstream@2.0.0:
+    resolution: {integrity: sha512-vmxqp4Quj4rVdkoXBzcQ3UzeH0JR7aXLr9rkx07pLp0gtPJyRxIU+9HZb94lKsaXxogM6EFRApEHusINPjsUuw==}
+    dependencies:
+      '@ipld/dag-cbor': 9.2.0
+      multiformats: 13.1.0
       uint8arraylist: 2.4.8
     dev: false
 

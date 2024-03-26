@@ -28,7 +28,7 @@ export class ClaimStore {
           console.error('failed to extract claim from archive', claim.error)
           continue
         }
-        const value = /** @type {import('@web3-storage/content-claims/server/service/api').AnyAssertCap} */ (claim.ok.capabilities[0])
+        const value = /** @type {ClaimsAPI.AnyAssertCap} */ (claim.ok.capabilities[0])
         claims.push({
           claim: v.cause,
           bytes: v.bytes,
