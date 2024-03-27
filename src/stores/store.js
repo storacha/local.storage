@@ -95,15 +95,12 @@ export class StoreStore {
     }
     return this.#store.transact(async s => {
       const size = options?.size ?? 20
-      const prefix = `d/${space}/`
-      const gt = `${prefix}${options?.cursor ?? ''}`
+      const gt = `d/${space}/${options?.cursor ?? ''}`
+      const lt = `d/${space}/~`
 
       const results = []
       let more = false
-      for await (const [k, v] of s.entries({ gt })) {
-        if (!k.startsWith(prefix)) {
-          break
-        }
+      for await (const [, v] of s.entries({ gt, lt })) {
         if (results.length + 1 > size) {
           more = true
           break

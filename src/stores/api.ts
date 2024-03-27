@@ -1,11 +1,14 @@
-import { AccountDID, DID, ISO8601Date, ProviderDID, SpaceDID, UCANLink, URI } from '@web3-storage/upload-api'
+import { AccountDID, DID, ISO8601Date, ProviderDID, SpaceDID, UCANLink } from '@web3-storage/upload-api'
+import { EntriesOptions } from '@web3-storage/pail/api'
+
+export { EntriesOptions }
 
 export interface Store<T> {
   put: (key: string, value: T) => Promise<void>
   get: (key: string) => Promise<T|undefined>
   has: (key: string) => Promise<boolean>
   del: (key: string) => Promise<void>
-  entries: (options?: { gt?: string, prefix?: string }) => AsyncIterable<[string, T]>
+  entries: (options?: EntriesOptions) => AsyncIterable<[string, T]>
 }
 
 export interface TransactionalStore<T> {

@@ -23,6 +23,8 @@ cli.command('ls')
   .describe('List entries in the pail.')
   .alias('list')
   .option('-p, --prefix', 'Key prefix to filter by.')
+  .option('--gt', 'Filter results by keys greater than this string.')
+  .option('--lt', 'Filter results by keys less than this string.')
   .option('--json', 'Format output as newline delimted JSON.')
   .action(async (opts) => {
     const blocks = new BlockStore(`${opts.path}/blocks`)
@@ -30,7 +32,7 @@ cli.command('ls')
     console.log(`Reading pail with root: ${root}`)
     let n = 0
     // @ts-expect-error
-    for await (const [k, v] of entries(blocks, root, { prefix: opts.prefix })) {
+    for await (const [k, v] of entries(blocks, root, { prefix: opts.prefix, gt: opts.gt, lt: opts.lt })) {
       console.log(opts.json ? JSON.stringify({ key: k, value: v.toString() }) : `${k}\t${v}`)
       n++
     }

@@ -17,7 +17,7 @@
     "@ucanto/transport": "^9.1.0",
     "@web3-storage/content-claims": "^4.0.3",
     "@web3-storage/did-mailto": "^2.1.0",
-    "@web3-storage/pail": "^0.5.0",
+    "@web3-storage/pail": "0.6.0-alpha.4",
     "@web3-storage/upload-api": "^8.4.1",
     "blockstore-fs": "^1.1.10",
     "cardex": "^3.0.2",

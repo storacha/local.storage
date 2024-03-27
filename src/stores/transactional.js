@@ -11,15 +11,16 @@ import { FsBlockstore } from 'blockstore-fs'
 import Queue from 'p-queue'
 import defer from 'p-defer'
 import { Map as LinkMap } from 'lnmap'
+import * as API from './api.js'
 
 /**
  * @template T
- * @typedef {import('./api.js').TransactionalStore<T>} ITransactionalStore
+ * @typedef {API.TransactionalStore<T>} ITransactionalStore
  */
 
 /**
  * @template T
- * @typedef {import('./api.js').Store<T>} IStore
+ * @typedef {API.Store<T>} IStore
  */
 
 /**
@@ -245,14 +246,14 @@ class TxnStore {
   }
 
   /**
-   * @param {{ gt?: string, prefix?: string }} [options]
+   * @param {API.EntriesOptions} [options]
    * @returns {AsyncIterable<[string, T]>}
    */
   async * entries (options) {
     for await (const [k, v] of Pail.entries(this.#blocks, this.#root, options)) {
       const valueBlock = await this.#blocks.get(v)
       if (!valueBlock) throw new Error('missing value for key')
-      yield [k, codec.decode(valueBlock.bytes)]
+      yield [k, this.#codec.decode(valueBlock.bytes)]
     }
   }
 }
@@ -298,15 +299,27 @@ class SubTxnStore {
   }
 
   /**
-   * @param {{ gt?: string, prefix?: string }} [options]
+   * @param {API.EntriesOptions} [options]
    * @returns {AsyncIterable<[string, T]>}
    */
   async * entries (options) {
-    options = { ...options }
-    if (options.gt) {
-      options.gt = `${this.#prefix}${options.gt}`
-    } else {
-      options.prefix = this.#prefix
+    if (options) {
+      if ('prefix' in options && options.prefix) {
+        options = { prefix: `${this.#prefix}${options.prefix}` }
+      } else {
+        if ('gt' in options && options.gt) {
+          options = { ...options, gt: `${this.#prefix}${options.gt}` }
+        }
+        if ('gte' in options && options.gte) {
+          options = { ...options, gte: `${this.#prefix}${options.gte}` }
+        }
+        if ('lt' in options && options.lt) {
+          options = { ...options, lt: `${this.#prefix}${options.lt}` }
+        }
+        if ('lte' in options && options.lte) {
+          options = { ...options, lte: `${this.#prefix}${options.lte}` }
+        }
+      }
     }
     for await (const [k, v] of this.#store.entries(options)) {
       yield [k.slice(this.#prefix.length), v]
