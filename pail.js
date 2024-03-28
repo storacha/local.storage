@@ -3,6 +3,7 @@ import fs from 'fs'
 import sade from 'sade'
 import * as Link from 'multiformats/link'
 import { get, entries } from '@web3-storage/pail'
+import Table from 'cli-table3'
 import { BlockStore } from './src/stores/transactional.js'
 
 const cli = sade('pail')
@@ -30,13 +31,33 @@ cli.command('ls')
     const blocks = new BlockStore(`${opts.path}/blocks`)
     const root = Link.decode(fs.readFileSync(`${opts.path}/root`))
     console.log(`Reading pail with root: ${root}`)
+    const { columns } = process.stdout
+    const keyColWidth = columns < 128
+      ? Math.max(3, Math.floor(columns / 2) - 2)
+      : Math.max(3, columns - 62 - 4)
+    const valColWidth = columns < 128
+      ? Math.max(3, Math.floor(columns / 2) - 2)
+      : 62
+    const table = new Table({
+      head: ['Key', 'Value'],
+      colWidths: [keyColWidth, valColWidth],
+      wordWrap: true,
+      wrapOnWordBoundary: false
+    })
     let n = 0
     // @ts-expect-error
     for await (const [k, v] of entries(blocks, root, { prefix: opts.prefix, gt: opts.gt, lt: opts.lt })) {
-      console.log(opts.json ? JSON.stringify({ key: k, value: v.toString() }) : `${k}\t${v}`)
+      if (opts.json) {
+        console.log(JSON.stringify({ key: k, value: v.toString() }))
+      } else {
+        table.push([k, v.toString()])
+      }
       n++
     }
-    if (!opts.json) console.log(`total ${n}`)
+    if (!opts.json) {
+      table.push([{ content: `Total: ${n.toLocaleString()}`, colSpan: 2}])
+      console.log(table.toString())
+    }
   })
 
 cli.parse(process.argv)

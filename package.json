@@ -34,6 +34,7 @@
   "devDependencies": {
     "@types/node": "^20.11.29",
     "@ucanto/interface": "^9.0.0",
+    "cli-table3": "^0.6.4",
     "entail": "^2.1.2",
     "sade": "^1.8.1"
   }
